@@ -1,4 +1,4 @@
-# Copyright 2010-2019 Gentoo Authors
+# Copyright 2010-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 from __future__ import unicode_literals
@@ -96,6 +96,8 @@ class RepoConfig(object):
 		'manifest_hashes',
 		'manifest_required_hashes',
 		'masters',
+		'maintainer_nag',
+		'maintainer_nag_url',
 		'missing_repo_name',
 		'module_specific_options',
 		'name',
@@ -306,6 +308,8 @@ class RepoConfig(object):
 		self.disable_manifest = False
 		self.manifest_hashes = None
 		self.manifest_required_hashes = None
+		self.maintainer_nag = False
+		self.maintainer_nag_url = None
 		self.update_changelog = False
 		self.cache_formats = None
 		self.portage1_profiles = True
@@ -338,12 +342,19 @@ class RepoConfig(object):
 				self.name = layout_data['repo-name']
 				self.missing_repo_name = False
 
+			# Override some repos.conf setting with layout.conf
 			for value in ('allow-missing-manifest',
 				'cache-formats',
-				'create-manifest', 'disable-manifest', 'manifest-hashes',
+				'create-manifest', 'disable-manifest', 'manifest-hashes', 'maintainer-nag', 'maintainer-nag-url',
 				'manifest-required-hashes', 'profile-formats', 'properties-allowed', 'restrict-allowed',
 				'sign-commit', 'sign-manifest', 'thin-manifest', 'update-changelog'):
 				setattr(self, value.lower().replace("-", "_"), layout_data[value])
+
+			# Allow repos.conf override of layout.conf for these
+			for value in ('maintainer-nag', 'maintainer-nag-url'):
+				setting = repo_opts.get(value)
+				if setting:
+					setattr(self, value.lower().replace("-", "_"), setting)
 
 			# If profile-formats specifies a default EAPI, then set
 			# self.eapi to that, otherwise set it to "0" as specified
@@ -600,6 +611,8 @@ class RepoConfigLoader(object):
 							'clone_depth',
 							'eclass_overrides',
 							'force',
+							'maintainer_nag',
+							'maintainer_nag_url',
 							'masters',
 							'module_specific_options',
 							'priority',
@@ -1045,6 +1058,7 @@ class RepoConfigLoader(object):
 
 	def config_string(self):
 		bool_keys = (
+			"maintainer_nag",
 			"strict_misc_digests",
 			"sync_allow_hardlinks",
 			"sync_rcu",
@@ -1055,6 +1069,7 @@ class RepoConfigLoader(object):
 			"format",
 			"location",
 			"main_repo",
+			"maintainer_nag_url",
 			"priority",
 			"sync_depth",
 			"sync_openpgp_keyserver",
@@ -1169,6 +1184,10 @@ def parse_layout_conf(repo_location, repo_name=None):
 	data['allow-missing-manifest'] = manifest_policy != 'strict'
 	data['create-manifest'] = manifest_policy != 'false'
 	data['disable-manifest'] = manifest_policy == 'false'
+
+	data['maintainer-nag'] = layout_data.get('maintainer-nag', 'no').lower() \
+		== 'yes'
+	data['maintainer-nag-url'] = layout_data.get('maintainer-nag-url', '')
 
 	# for compatibility w/ PMS, fallback to pms; but also check if the
 	# cache exists or not.
