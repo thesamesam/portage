@@ -22,10 +22,13 @@ def _get_all_provides(vardb):
 	@param vardb: an installed package database
 	@type vardb: vardbapi
 	@rtype: frozenset
-	@return: a frozenset od SonameAtom instances provided by all
-		installed packages
+	@return: a frozenset tuple of
+		([provider], SonameAtom instances provided by all
+		installed packages)
 	"""
 
+	#all_provides = []
+	providers = {}
 	all_provides = []
 
 	for cpv in vardb.cpv_all():
@@ -41,7 +44,7 @@ def _get_all_provides(vardb):
 			pass
 		else:
 			if provides:
-				all_provides.extend(parse_soname_deps(provides))
+				all_provides.extend(parse_soname_deps(provides, cpv.cp))
 
 	return frozenset(all_provides)
 
@@ -63,13 +66,15 @@ def _get_unresolved_soname_deps(metadata_dir, all_provides):
 		with io.open(_unicode_encode(os.path.join(metadata_dir, 'REQUIRES'),
 			encoding=_encodings['fs'], errors='strict'),
 			mode='rt', encoding=_encodings['repo.content'], errors='strict') as f:
-			requires = frozenset(parse_soname_deps(f.read()))
+			requires = parse_soname_deps(f.read())
+			requires = frozenset([soname_deps[1] for soname_deps in requires])
 	except EnvironmentError:
 		return []
 
 	unresolved_by_category = {}
+	all_provides_atoms = [soname_deps[1] for soname_deps in all_provides]
 	for atom in requires:
-		if atom not in all_provides:
+		if atom not in all_provides_atoms:
 			unresolved_by_category.setdefault(atom.multilib_category, set()).add(atom.soname)
 
 	needed_filename = os.path.join(metadata_dir, "NEEDED.ELF.2")
@@ -77,15 +82,44 @@ def _get_unresolved_soname_deps(metadata_dir, all_provides):
 		mode='rt', encoding=_encodings['repo.content'], errors='strict') as f:
 		needed = f.readlines()
 
+	needed_dependencies = []
+
+	# Do we *DEPEND on a provider for this?
+	soname_to_cpv = {}
+	for cpv, atom in all_provides:
+		try:
+			# TOOD: tidy
+			soname_to_cpv[atom.soname].add(cpv)
+		except KeyError:
+			soname_to_cpv[atom.soname] = set([cpv])
+
 	unresolved_by_file = []
+
 	for l in needed:
 		l = l.rstrip("\n")
 		if not l:
 			continue
 		entry = NeededEntry.parse(needed_filename, l)
+
+		# Iterate over all NEEDED entries for verification that we *DEPEND
+		# on their providers.
+		for needed_soname in entry.needed:
+			# Filter the whole list to only ones we're interested in for our package
+			# i.e. those referenced by NEEDED in our ELF files
+
+			# Find a corresponding tuple if it exists
+			try:
+				# Check tuples (soname, cpv) to see if this SONAME is already in there
+				position = next((pair for pair in needed_dependencies if pair[0] == needed_soname))
+			except StopIteration:
+				# Not already in there, proceed
+				needed_dependencies.extend([(soname, cpv) for soname, cpv in soname_to_cpv.items() if soname == needed_soname])
+
+		# Now back to unresolved entries
 		missing = unresolved_by_category.get(entry.multilib_category)
 		if not missing:
 			continue
+
 		# NOTE: This can contain some false positives in the case of
 		# missing DT_RPATH settings, since it's possible that a subset
 		# package files have the desired DT_RPATH settings. However,
@@ -95,7 +129,7 @@ def _get_unresolved_soname_deps(metadata_dir, all_provides):
 		if missing:
 			unresolved_by_file.append((entry.filename, tuple(missing)))
 
-	return unresolved_by_file
+	return (needed_dependencies, unresolved_by_file)
 
 def _get_core_dependencies(metadata_dir):
 	"""

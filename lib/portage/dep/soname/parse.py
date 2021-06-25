@@ -10,7 +10,7 @@ _error_missing_category = _("Multilib category missing: %s")
 _error_duplicate_category = _("Multilib category occurs"
 	" more than once: %s")
 
-def parse_soname_deps(s):
+def parse_soname_deps(s, cpv=None):
 	"""
 	Parse a REQUIRES or PROVIDES dependency string, and raise
 	InvalidData if necessary.
@@ -39,7 +39,7 @@ def parse_soname_deps(s):
 			raise InvalidData(_error_missing_category % soname)
 		else:
 			previous_soname = soname
-			yield SonameAtom(category, soname)
+			yield (cpv, SonameAtom(category, soname))
 
 	if category is not None and previous_soname is None:
 		raise InvalidData(_error_empty_category % category)

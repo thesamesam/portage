@@ -503,7 +503,9 @@ class _PostPhaseCommands(CompositeTask):
 
 		all_provides = (await self.scheduler.run_in_executor(ForkExecutor(loop=self.scheduler), _get_all_provides, vardb))
 
-		unresolved = _get_unresolved_soname_deps(os.path.join(self.settings['PORTAGE_BUILDDIR'], 'build-info'), all_provides)
+		soname_results = _get_unresolved_soname_deps(os.path.join(self.settings['PORTAGE_BUILDDIR'], 'build-info'), all_provides)
+		possible_missing_deps = soname_results[0]
+		unresolved = soname_results[1]
 
 		if unresolved:
 			unresolved.sort()
@@ -514,22 +516,19 @@ class _PostPhaseCommands(CompositeTask):
 			qa_msg.append("")
 			await self.elog("eqawarn", qa_msg)
 
-		# Grab a list of dependencies needed for important packages which
-		# often aren't explicitly depended on.
-		# e.g. virtual/libcrypt
-		core_dependencies = _get_core_dependencies(os.path.join(self.settings['PORTAGE_BUILDDIR'], 'build-info'))
-		if core_dependencies:
-			for core_dependency in core_dependencies:
-				# Check whether this package actually does depend on it
-				dependency_needed = core_dependency[0]
-				needs_subslot_dep = core_dependency[1]
+		# Grab a list of dependencies needed for packages (TODO)
+		missing_deps = []
+		if possible_missing_deps:
+			for soname, deps in possible_missing_deps:
+				# Check whether the deps are in the ebuild
+				for dep in deps:
+					# TODO: How to check if the dep is in @system?
+					if dep not in self.settings['DEPEND']:
+						missing_deps.append((soname, dep))
 
-				if needs_subslot_dep:
-					dependency_needed += ":="
-
-				if dependency_needed not in self.settings['DEPEND']:
-					qa_msg = ["QA Notice: Missing important dependencies:"]
-					qa_msg.append("")
-					qa_msg.append("\t%s" % dependency_needed)
-					qa_msg.append("")
-					await self.elog("eqawarn", qa_msg)
+			qa_msg = ["QA Notice: Missing dependencies based on NEEDED:"]
+			qa_msg.append("")
+			qa_msg.extend("\t%s: %s" % (soname, dep)
+				for soname, dep in missing_deps)
+			qa_msg.append("")
+			await self.elog("eqawarn", qa_msg)
