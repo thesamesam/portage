@@ -96,3 +96,47 @@ def _get_unresolved_soname_deps(metadata_dir, all_provides):
 			unresolved_by_file.append((entry.filename, tuple(missing)))
 
 	return unresolved_by_file
+
+def _get_core_dependencies(metadata_dir):
+	"""
+	Return list of SONAMEs belonging to libraries which are often not listed
+	as dependencies in ebuilds.
+
+	@param metadata_dir: directory containing package metadata files
+		named REQUIRES and NEEDED.ELF.2
+	@type metadata_dir: str
+	@rtype: list
+	@return: list of packages which should be depended on
+	"""
+
+	# Dictionary of important packages which must have dependencies listed
+	# Key: SONAME
+	# Value: (provider, subslot dependency required)
+	soname_to_package={
+		"libcrypt.so" : ("virtual/libcrypt", True)
+	}
+	missing_dependencies = []
+
+	needed_filename = os.path.join(metadata_dir, "NEEDED.ELF.2")
+	with io.open(_unicode_encode(needed_filename, encoding=_encodings['fs'], errors='strict'),
+		mode='rt', encoding=_encodings['repo.content'], errors='strict') as f:
+		needed = f.readlines()
+
+		for line in needed:
+			line = line.rstrip("\n")
+			if not line:
+				continue
+
+			needed = NeededEntry.parse(needed_filename, line).needed
+
+			for soname in needed:
+				try:
+					dependency = [value for key, value in soname_to_package.items() if soname.startswith(key)][0]
+				except IndexError:
+					# We don't care about this SONAME
+					# It belongs to some package we're not concerned with
+					continue
+
+				missing_dependencies.append(dependency)
+
+		return missing_dependencies

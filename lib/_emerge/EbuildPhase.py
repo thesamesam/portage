@@ -18,6 +18,7 @@ from portage.package.ebuild._ipc.QueryCommand import QueryCommand
 from portage.util._dyn_libs.soname_deps_qa import (
 	_get_all_provides,
 	_get_unresolved_soname_deps,
+	_get_core_dependencies,
 )
 from portage.package.ebuild.prepare_build_dirs import (_prepare_workdir,
 		_prepare_fake_distdir, _prepare_fake_filesdir)
@@ -512,3 +513,23 @@ class _PostPhaseCommands(CompositeTask):
 				for filename, soname_deps in unresolved)
 			qa_msg.append("")
 			await self.elog("eqawarn", qa_msg)
+
+		# Grab a list of dependencies needed for important packages which
+		# often aren't explicitly depended on.
+		# e.g. virtual/libcrypt
+		core_dependencies = _get_core_dependencies(os.path.join(self.settings['PORTAGE_BUILDDIR'], 'build-info'))
+		if core_dependencies:
+			for core_dependency in core_dependencies:
+				# Check whether this package actually does depend on it
+				dependency_needed = core_dependency[0]
+				needs_subslot_dep = core_dependency[1]
+
+				if needs_subslot_dep:
+					dependency_needed += ":="
+
+				if dependency_needed not in self.settings['DEPEND']:
+					qa_msg = ["QA Notice: Missing important dependencies:"]
+					qa_msg.append("")
+					qa_msg.append("\t%s" % dependency_needed)
+					qa_msg.append("")
+					await self.elog("eqawarn", qa_msg)
