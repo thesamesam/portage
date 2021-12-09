@@ -10785,9 +10785,6 @@ class depgraph:
         to ensure that the user is notified of problems with the graph.
         """
 
-        if self._dynamic_config._circular_deps_for_display is not None:
-            self._show_circular_deps(self._dynamic_config._circular_deps_for_display)
-
         unresolved_conflicts = False
         have_slot_conflict = any(self._dynamic_config._package_tracker.slot_conflicts())
         if have_slot_conflict:
@@ -10807,6 +10804,9 @@ class depgraph:
         if self._frozen_config.myopts.get("--verbose-slot-rebuilds", "y") != "n":
             self._compute_abi_rebuild_info()
             self._show_abi_rebuild_info()
+
+        if self._dynamic_config._circular_deps_for_display is not None:
+            self._show_circular_deps(self._dynamic_config._circular_deps_for_display)
 
         self._show_ignored_binaries()
 
