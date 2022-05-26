@@ -127,25 +127,31 @@ filtered_check_lfs() {
 	# Only check glibc & uClibc libraries.  Others are presumed to use LFS by
 	# default (e.g. musl), or it's not relevant (e.g. newlib).
 	case ${CHOST} in
-	*-gnu*|*-uclibc*) ;;
-	*) return ;;
+		*-gnu*|*-uclibc*)
+			;;
+		*)
+			return
+			;;
 	esac
 
 	# Only check on 32-bit systems.  Filtering by $ARCH here isn't perfect, but
 	# it should be good enough for our needs.
 	case ${ARCH} in
-	arm|mips|ppc|sh|x86) ;;
-	*) return ;;
+		arm|mips|ppc|sh|x86)
+			;;
+		*)
+			return
+			;;
 	esac
 
 	# Obviously filter out C libraries themselves :).
 	# The sandbox has to capture all symbols by design.
 	case ${CATEGORY}/${PN} in
-	*/glibc|\
-	*/uclibc|\
-	*/gcc|\
-	sys-apps/sandbox) ;;
-	*) check_lfs "${ED}" ;;
+		*/glibc|*/uclibc|*/gcc|sys-apps/sandbox)
+			;;
+		*)
+			check_lfs "${ED}"
+			;;
 	esac
 }
 
