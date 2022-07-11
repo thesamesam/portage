@@ -187,10 +187,10 @@ def action_metadata(settings, portdb, myopts, porttrees=None):
                         # We don't want to skip the write unless we're really
                         # sure that the existing cache is identical, so don't
                         # trust _mtime_ and _eclasses_ alone.
-                        cache_is_identical = (
-                            True for k in auxdbkeys if dest.get(k, "") != src.get(k, "")
+                        cache_is_identical = all(
+                            dest.get(k, "") == src.get(k, "") for k in auxdbkeys
                         )
-                        if any(cache_is_identical):
+                        if not cache_is_identical:
                             dest = None
                 if dest is not None:
                     # The existing data is valid and identical,
