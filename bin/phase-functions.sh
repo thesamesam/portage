@@ -314,16 +314,26 @@ __dyn_clean() {
 	fi
 
 	if [[ -f "${PORTAGE_BUILDDIR}/.unpacked" ]]; then
-		find "${PORTAGE_BUILDDIR}" -type d ! -regex "^${WORKDIR}" | sort -r | tr "\n" "\0" | ${XARGS} -0 rmdir &>/dev/null
+		printf '%s\0' "${PORTAGE_BUILDDIR}" \
+		| find -files0-from - -depth -type d -empty -print0 \
+		| while read -rd ''; do
+			# We could use find -path but it's cleaner to avoid
+			# injection (treat WORKDIR literally, not as a glob pattern).
+			# We also can't use -prune because this is depth-first.
+			if [[ ${REPLY} != "${WORKDIR}"?(/*) ]]; then
+				printf '%s\0' "${REPLY}"
+			fi
+		  done \
+		| ${XARGS} -r0 rmdir --
 	fi
 
 	# Do not bind this to doebuild defined DISTDIR; don't trust doebuild, and if mistakes are made it'll
 	# result in it wiping the users distfiles directory (bad).
 	rm -rf -- "${PORTAGE_BUILDDIR}/distdir"
 
-	rmdir "${PORTAGE_BUILDDIR}" 2>/dev/null
-
-	true
+	printf '%s\0' "${PORTAGE_BUILDDIR}" \
+	| find -files0-from - -maxdepth 0 -type d -empty -print0 2>/dev/null \
+	| ${XARGS} -r0 rmdir --
 }
 
 __abort_handler() {
