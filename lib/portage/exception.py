@@ -46,6 +46,10 @@ class InvalidVersionString(PortageException):
     """An invalid version string has been encountered"""
 
 
+class InvalidKeywordsString(PortageException):
+    """An invalid KEYWORDS string has been encountered"""
+
+
 class SecurityViolation(PortageException):
     """An incorrect formatting was passed instead of the expected one"""
 

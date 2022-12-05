@@ -12,6 +12,7 @@ from portage.dep import (
     remove_slot,
     _get_useflag_re,
 )
+from portage.exception import InvalidKeywordsString
 from portage.eapi import (
     eapi_supports_use_stable,
     eapi_supports_stable_use_forcing_and_masking,
@@ -427,7 +428,7 @@ class UseManager:
         if self._user_config:
             try:
                 return pkg.stable
-            except AttributeError:
+            except (AttributeError, InvalidKeywordsString):
                 # KEYWORDS is unavailable (prior to "depend" phase)
                 return False
 
@@ -437,10 +438,13 @@ class UseManager:
             # KEYWORDS is unavailable (prior to "depend" phase)
             return False
 
-        # Since repoman uses different config instances for
-        # different profiles, we have to be careful to do the
-        # stable check against the correct profile here.
-        return self._is_stable(pkg)
+        try:
+            # Since repoman uses different config instances for
+            # different profiles, we have to be careful to do the
+            # stable check against the correct profile here.
+            return self._is_stable(pkg)
+        except InvalidKeywordsString:
+            return False
 
     def getUseMask(self, pkg=None, stable=None):
         if pkg is None:

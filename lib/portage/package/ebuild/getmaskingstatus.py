@@ -82,7 +82,11 @@ def _getmaskingstatus(mycpv, settings, portdb, myrepo=None):
 
     # keywords checking
     eapi = metadata["EAPI"]
-    mygroups = settings._getKeywords(mycpv, metadata)
+    try:
+        mygroups = settings._getKeywords(mycpv, metadata)
+    except portage.exception.InvalidKeywordsString as e:
+        return [_MaskReason("invalid", "invalid KEYWORDS: {}".format(e))]
+
     licenses = metadata["LICENSE"]
     properties = metadata["PROPERTIES"]
     restrict = metadata["RESTRICT"]

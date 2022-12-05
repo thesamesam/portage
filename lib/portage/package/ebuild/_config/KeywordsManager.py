@@ -1,12 +1,14 @@
-# Copyright 2010-2021 Gentoo Authors
+# Copyright 2010-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 __all__ = ("KeywordsManager",)
 
+import re
 import warnings
 
 import portage
 from portage import os
+from portage.exception import InvalidKeywordsString
 from portage.dep import ExtendedAtomDict
 from portage.localization import _
 from portage.package.ebuild._config.helper import ordered_by_atom_specificity
@@ -17,6 +19,9 @@ from portage.versions import _pkg_str
 
 class KeywordsManager:
     """Manager class to handle keywords processing and validation"""
+
+    # See PMS 3.1.7 "Keyword names"
+    ARCH_REGEX = re.compile(r"(^\*$|^[-_a-z0-9~* ]+$|^$)")
 
     def __init__(
         self, profiles, abs_user_config, user_config=True, global_accept_keywords=""
@@ -121,7 +126,13 @@ class KeywordsManager:
         else:
             pkg = cpv
         cp = pkg.cp
+
+        if not self.ARCH_REGEX.match(keywords):
+            # print("uh oh")
+            raise InvalidKeywordsString(keywords)
+
         keywords = [[x for x in keywords.split() if x != "-*"]]
+
         for pkeywords_dict in self._pkeywords_list:
             cpdict = pkeywords_dict.get(cp)
             if cpdict:

@@ -434,9 +434,13 @@ class Package(Task):
         if portage._eapi_is_deprecated(eapi):
             masks["EAPI.deprecated"] = eapi
 
-        missing_keywords = settings._getMissingKeywords(self.cpv, self._metadata)
-        if missing_keywords:
-            masks["KEYWORDS"] = missing_keywords
+        try:
+            missing_keywords = settings._getMissingKeywords(self.cpv, self._metadata)
+            if missing_keywords:
+                masks["KEYWORDS"] = missing_keywords
+        except portage.exception.InvalidKeywordsString:
+            print(self.cpv)
+            masks["invalid"] = True
 
         try:
             missing_properties = settings._getMissingProperties(

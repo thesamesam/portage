@@ -1545,8 +1545,13 @@ class portdbapi(dbapi):
         settings = self.settings
         if settings._getMaskAtom(cpv, metadata):
             return False
-        if settings._getMissingKeywords(cpv, metadata):
+
+        try:
+            if settings._getMissingKeywords(cpv, metadata):
+                return False
+        except portage.exception.InvalidKeywordsString:
             return False
+
         if settings.local_config:
             metadata["CHOST"] = settings.get("CHOST", "")
             if not settings._accept_chost(cpv, metadata):
