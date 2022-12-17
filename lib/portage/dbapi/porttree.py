@@ -608,7 +608,7 @@ class portdbapi(dbapi):
                 # a traceback for debugging purposes.
                 traceback.print_exc()
 
-    def _pull_valid_cache(self, cpv, ebuild_path, repo_path):
+    def _pull_valid_cache(self, cpv, ebuild_path, repo_path, force=False):
         from portage.util import writemsg
 
         try:
@@ -635,7 +635,8 @@ class portdbapi(dbapi):
         if ro_auxdb is not None:
             auxdbs.append(ro_auxdb)
         auxdbs.append(self.auxdb[repo_path])
-        eclass_db = self.repositories.get_repo_for_location(repo_path).eclass_db
+        repo = self.repositories.get_repo_for_location(repo_path)
+        eclass_db = repo.eclass_db
 
         for auxdb in auxdbs:
             try:
@@ -658,6 +659,12 @@ class portdbapi(dbapi):
                 # EAPI from _parse_eapi_ebuild_head, we disregard cache entries
                 # for unsupported EAPIs.
                 continue
+
+            # egencache for example needs to be able to invalidate and force
+            # fresh entries.
+            if not force and not repo.volatile:
+                break
+
             if auxdb.validate_entry(metadata, ebuild_hash, eclass_db):
                 break
         else:
