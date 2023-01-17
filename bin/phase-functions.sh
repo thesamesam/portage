@@ -493,14 +493,14 @@ __dyn_test() {
 	trap "__abort_test" SIGINT SIGQUIT
 
 	if [[ -d ${S} ]]; then
-		cd "${S}"
+		cd -- "${S}"
 	elif ___eapi_has_S_WORKDIR_fallback; then
-		cd "${WORKDIR}"
+		cd -- "${WORKDIR}"
 	elif [[ -z ${A} ]] && ! __has_phase_defined_up_to test; then
-		cd "${WORKDIR}"
+		cd -- "${WORKDIR}"
 	else
 		die "The source directory '${S}' doesn't exist"
-	fi
+	fi || die
 
 	if has test ${PORTAGE_RESTRICT} && ! has all ${ALLOW_TEST} &&
 			! { has test_network ${PORTAGE_PROPERTIES} && has network ${ALLOW_TEST}; }
@@ -672,7 +672,7 @@ __dyn_install() {
 		__vecho
 	fi
 
-	cd "${PORTAGE_BUILDDIR}"/build-info
+	cd -- "${PORTAGE_BUILDDIR}"/build-info || die
 	set -f
 	local f x
 
@@ -708,7 +708,7 @@ __dyn_install() {
 	unset f
 
 	# Use safe cwd, avoiding unsafe import for bug #469338.
-	cd "${PORTAGE_PYM_PATH}"
+	cd -- "${PORTAGE_PYM_PATH}" || die
 	__save_ebuild_env --exclude-init-phases | __filter_readonly_variables \
 		--filter-path --filter-sandbox --allow-extra-vars > \
 		"${PORTAGE_BUILDDIR}"/build-info/environment
@@ -1012,7 +1012,7 @@ __ebuild_main() {
 			# Update environment.bz2 in case installation phases
 			# need to pass some variables to uninstallation phases.
 			# Use safe cwd, avoiding unsafe import for bug #469338.
-			cd "${PORTAGE_PYM_PATH}"
+			cd -- "${PORTAGE_PYM_PATH}" || die
 			__save_ebuild_env --exclude-init-phases | \
 				__filter_readonly_variables --filter-path \
 				--filter-sandbox --allow-extra-vars \
@@ -1106,7 +1106,7 @@ __ebuild_main() {
 		umask 002
 
 		# Use safe cwd, avoiding unsafe import for bug #469338.
-		cd "${PORTAGE_PYM_PATH}"
+		cd -- "${PORTAGE_PYM_PATH}" || die
 		__save_ebuild_env | __filter_readonly_variables \
 			--filter-features > "${T}/environment"
 		assert "__save_ebuild_env failed"
