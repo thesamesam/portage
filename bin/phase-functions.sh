@@ -169,8 +169,8 @@ __preprocess_ebuild_env() {
 		>> "${T}/environment.filtered" || return $?
 
 	unset _portage_filter_opts
-	mv "${T}"/environment.filtered "${T}"/environment || return $?
-	rm -f "${T}/environment.success" || return $?
+	mv -- "${T}"/environment.filtered "${T}"/environment || return $?
+	rm -f -- "${T}/environment.success" || return $?
 
 	# WARNING: Code inside this subshell should avoid making assumptions
 	# about variables or functions after source "${T}"/environment has been
@@ -206,7 +206,7 @@ __preprocess_ebuild_env() {
 		retval=1
 	fi
 
-	rm -f "${T}"/environment.{filtered,raw,success}
+	rm -f -- "${T}"/environment.{filtered,raw,success}
 	return ${retval}
 }
 
@@ -264,7 +264,7 @@ __dyn_unpack() {
 		install -m${PORTAGE_WORKDIR_MODE:-0700} -d "${WORKDIR}" || die "Failed to create dir '${WORKDIR}'"
 	fi
 
-	cd "${WORKDIR}" || die "Directory change failed: \`cd '${WORKDIR}'\`"
+	cd -- "${WORKDIR}" || die "Directory change failed: \`cd '${WORKDIR}'\`"
 	__ebuild_phase pre_src_unpack
 	__vecho ">>> Unpacking source..."
 	__ebuild_phase src_unpack
@@ -289,28 +289,28 @@ __dyn_clean() {
 
 	# Some kernels, such as Solaris, return EINVAL when an attempt
 	# is made to remove the current working directory.
-	cd "${PORTAGE_PYM_PATH}" || \
+	cd -- "${PORTAGE_PYM_PATH}" || \
 		die "PORTAGE_PYM_PATH does not exist: '${PORTAGE_PYM_PATH}'"
 
-	rm -rf "${PORTAGE_BUILDDIR}/image" "${PORTAGE_BUILDDIR}/homedir" \
+	rm -rf -- "${PORTAGE_BUILDDIR}/image" "${PORTAGE_BUILDDIR}/homedir" \
 		"${PORTAGE_BUILDDIR}/empty"
-	rm -f "${PORTAGE_BUILDDIR}/.installed"
+	rm -f -- "${PORTAGE_BUILDDIR}/.installed"
 
 	if [[ ${EMERGE_FROM} = binary ]] || \
 		! has keeptemp ${FEATURES} && ! has keepwork ${FEATURES} ; then
-		rm -rf "${T}"
+		rm -rf -- "${T}"
 	fi
 
 	if [[ ${EMERGE_FROM} = binary ]] || ! has keepwork ${FEATURES} ; then
-		rm -f "${PORTAGE_BUILDDIR}"/.{ebuild_changed,logid,pretended,setuped,unpacked,prepared} \
+		rm -f -- "${PORTAGE_BUILDDIR}"/.{ebuild_changed,logid,pretended,setuped,unpacked,prepared} \
 			"${PORTAGE_BUILDDIR}"/.{configured,compiled,tested,packaged,instprepped} \
 			"${PORTAGE_BUILDDIR}"/.die_hooks \
 			"${PORTAGE_BUILDDIR}"/.exit_status
 
-		rm -rf "${PORTAGE_BUILDDIR}/build-info" \
+		rm -rf -- "${PORTAGE_BUILDDIR}/build-info" \
 			"${PORTAGE_BUILDDIR}/.ipc"
-		rm -rf "${WORKDIR}"
-		rm -f "${PORTAGE_BUILDDIR}/files"
+		rm -rf -- "${WORKDIR}"
+		rm -f -- "${PORTAGE_BUILDDIR}/files"
 	fi
 
 	if [[ -f "${PORTAGE_BUILDDIR}/.unpacked" ]]; then
@@ -319,7 +319,7 @@ __dyn_clean() {
 
 	# Do not bind this to doebuild defined DISTDIR; don't trust doebuild, and if mistakes are made it'll
 	# result in it wiping the users distfiles directory (bad).
-	rm -rf "${PORTAGE_BUILDDIR}/distdir"
+	rm -rf -- "${PORTAGE_BUILDDIR}/distdir"
 
 	rmdir "${PORTAGE_BUILDDIR}" 2>/dev/null
 
@@ -344,31 +344,31 @@ __abort_handler() {
 
 __abort_prepare() {
 	__abort_handler src_prepare $1
-	rm -f "${PORTAGE_BUILDDIR}/.prepared"
+	rm -f -- "${PORTAGE_BUILDDIR}/.prepared"
 	exit 1
 }
 
 __abort_configure() {
 	__abort_handler src_configure $1
-	rm -f "${PORTAGE_BUILDDIR}/.configured"
+	rm -f -- "${PORTAGE_BUILDDIR}/.configured"
 	exit 1
 }
 
 __abort_compile() {
 	__abort_handler "src_compile" $1
-	rm -f "${PORTAGE_BUILDDIR}/.compiled"
+	rm -f -- "${PORTAGE_BUILDDIR}/.compiled"
 	exit 1
 }
 
 __abort_test() {
 	__abort_handler "__dyn_test" $1
-	rm -f "${PORTAGE_BUILDDIR}/.tested"
+	rm -f -- "${PORTAGE_BUILDDIR}/.tested"
 	exit 1
 }
 
 __abort_install() {
 	__abort_handler "src_install" $1
-	rm -rf "${PORTAGE_BUILDDIR}/image"
+	rm -rf -- "${PORTAGE_BUILDDIR}/image"
 	exit 1
 }
 
@@ -534,7 +534,7 @@ __dyn_install() {
 	[[ -z "${PORTAGE_BUILDDIR}" ]] && die "${FUNCNAME}: PORTAGE_BUILDDIR is unset"
 
 	if has noauto ${FEATURES} ; then
-		rm -f "${PORTAGE_BUILDDIR}/.installed"
+		rm -f -- "${PORTAGE_BUILDDIR}/.installed"
 	elif [[ -e ${PORTAGE_BUILDDIR}/.installed ]] ; then
 		__vecho ">>> It appears that '${PF}' is already installed; skipping."
 		__vecho ">>> Remove '${PORTAGE_BUILDDIR}/.installed' to force install."
@@ -577,8 +577,8 @@ __dyn_install() {
 	else
 		_x=${D}
 	fi
-	rm -rf "${D}"
-	mkdir -p "${_x}"
+	rm -rf -- "${D}"
+	mkdir -p -- "${_x}"
 	unset _x
 
 	if [[ -d ${S} ]] ; then
@@ -620,8 +620,8 @@ __dyn_install() {
 
 	# record build & installed size in build log
 	if type -P du &>/dev/null; then
-		local nsz=( $(du -ks "${WORKDIR}") )
-		local isz=( $(du -ks "${D}") )
+		local nsz=( $(du -ks -- "${WORKDIR}") )
+		local isz=( $(du -ks -- "${D}") )
 
 		# subshell to avoid polluting the caller env with the helper
 		# functions below
@@ -713,7 +713,7 @@ __dyn_install() {
 		--filter-path --filter-sandbox --allow-extra-vars > \
 		"${PORTAGE_BUILDDIR}"/build-info/environment
 	assert "__save_ebuild_env failed"
-	cd "${PORTAGE_BUILDDIR}"/build-info || die
+	cd -- "${PORTAGE_BUILDDIR}"/build-info || die
 
 	${PORTAGE_BZIP2_COMMAND} -f9 environment
 
@@ -973,7 +973,7 @@ __ebuild_main() {
 			export SANDBOX_ON=0
 		fi
 
-		rm -f "${SANDBOX_LOG}" || \
+		rm -f -- "${SANDBOX_LOG}" || \
 			die "failed to remove stale sandbox log: '${SANDBOX_LOG}'"
 
 		if [[ -n ${x} ]] ; then
