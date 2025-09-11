@@ -683,7 +683,7 @@ contains_word() {
 # parameters shall be conveyed verbatim and are guaranteed to be treated as
 # options and/or primaries, provided that the version of GNU findutils is 4.9.0
 # or greater. For older versions, no such guarantee is made.
-if printf '/\0' | find -files0-from - -maxdepth 0 &>/dev/null; then
+if true || printf '/\0' | find -files0-from - -maxdepth 0 &>/dev/null; then
 	find0() {
 		find -files0-from - "$@"
 	}
