@@ -49,6 +49,14 @@ class PackagePhase(CompositeTask):
                 self._pkg_install_mask = InstallMask(f.read())
         except OSError:
             self._pkg_install_mask = None
+
+        if "packdebug" in self.settings.features:
+            tmp_pkg_install_mask = self._pkg_install_mask or ""
+            # We don't want to include debug information in binpkgs themselves
+            # w/ packdebug as binpkg consumers should fetch them via debuginfod.
+            tmp_pkg_install_mask += " /usr/src/debug/ /usr/lib/debug/"
+            self._pkg_install_mask = InstallMask(tmp_pkg_install_mask)
+
         if self._pkg_install_mask:
             self._proot = os.path.join(self.settings["T"], "packaging")
             self._start_task(
