@@ -1,7 +1,9 @@
-# Copyright 2025 Gentoo Authors
+# Copyright 2025-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
+import filecmp
 import os
+import shutil
 import time
 
 from portage.tests import CommandStep, FunctionStep
@@ -15,6 +17,11 @@ class EmainBinhostTestCase(EmaintTestCase):
 
         binpkgs = {
             "app-misc/A-1": {
+                "EAPI": "8",
+                "DEPEND": "app-misc/B",
+                "RDEPEND": "app-misc/C",
+            },
+            "app-text/A-1": {
                 "EAPI": "8",
                 "DEPEND": "app-misc/B",
                 "RDEPEND": "app-misc/C",
@@ -33,11 +40,61 @@ class EmainBinhostTestCase(EmaintTestCase):
 
         emaint = self.cmds["emaint"]
         bintree = playground.trees[playground.settings["EROOT"]]["bintree"]
+
         steps = (
             FunctionStep(
                 function=lambda i: self.assertTrue(
                     os.path.exists(bintree._pkgindex_file), f"step {i}"
                 ),
+            ),
+            # Creating a fresh index then regenerating it should yield
+            # the same result.
+            FunctionStep(
+                function=lambda i: os.unlink(bintree._pkgindex_file),
+            ),
+            CommandStep(
+                returncode=os.EX_OK,
+                command=emaint + ("binhost", "--fix"),
+            ),
+            FunctionStep(
+                function=lambda i: shutil.copyfile(
+                    bintree._pkgindex_file, f"{bintree._pkgindex_file}.bak"
+                ),
+            ),
+            CommandStep(
+                returncode=os.EX_OK,
+                command=emaint + ("binhost", "--fix"),
+            ),
+            FunctionStep(
+                function=lambda i: self.assertTrue(
+                    filecmp.cmp(
+                        bintree._pkgindex_file,
+                        f"{bintree._pkgindex_file}.bak",
+                        shallow=False,
+                    )
+                )
+            ),
+            # Make sure it differs if we bump the mtime on a binpkg
+            FunctionStep(
+                function=lambda i: os.utime(
+                    os.path.join(bintree.pkgdir, "app-misc", "A-1.gpkg.tar"),
+                ),
+            ),
+            CommandStep(
+                returncode=os.EX_OK,
+                command=emaint + ("binhost", "--fix"),
+            ),
+            FunctionStep(
+                function=lambda i: self.assertFalse(
+                    filecmp.cmp(
+                        bintree._pkgindex_file,
+                        f"{bintree._pkgindex_file}.bak",
+                        shallow=False,
+                    )
+                )
+            ),
+            FunctionStep(
+                function=lambda i: os.unlink(f"{bintree._pkgindex_file}.bak"),
             ),
             # The compressed index should not exist yet because compress-index is disabled in make.conf.
             FunctionStep(
@@ -81,9 +138,7 @@ class EmainBinhostTestCase(EmaintTestCase):
             ),
             # Bump the timestamp of Packages so that Packages.gz becomes stale.
             FunctionStep(
-                function=lambda i: os.utime(
-                    bintree._pkgindex_file, current_time(offset=2)
-                ),
+                function=lambda i: os.utime(bintree._pkgindex_file),
             ),
             # It should report an error for stale Packages.gz here.
             CommandStep(
